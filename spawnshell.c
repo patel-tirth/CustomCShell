@@ -29,6 +29,7 @@ void unix_error(char *msg) /* Unix-style error */
   fprintf(stderr, "%s: %s\n", msg, strerror(errno));
   exit(EXIT_FAILURE);
 }
+// handle sigint and sigtstp signals
 static void sig_handler(int this_signal)
 {
   if(this_signal == SIGINT){

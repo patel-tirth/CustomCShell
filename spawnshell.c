@@ -23,8 +23,10 @@ void eval(char *cmdline);
 int parseline(char *buf, char **argv);
 int builtin_command(char **argv);
 void parse_redirections(char **argv );
- void parse_pipe(char **argv, int i);
-
+void parse_pipe(char **argv, int i);
+void parse_semicolon(char **argv, int i);
+int globalPid = 0 ;
+int globalStatus = 0 ;
 void unix_error(char *msg) /* Unix-style error */
 {
   fprintf(stderr, "%s: %s\n", msg, strerror(errno));
@@ -74,15 +76,11 @@ void eval(char *cmdline) {
   char *argv[MAXARGS]; /* Argument list execve() */
   char buf[MAXLINE];   /* Holds modified command line */
   int bg;              /* Should the job run in bg or fg? */
-  pid_t pid;    
-  // pid_t pid1;           
-  // pid_t pid2;                  /* Process id */
+  pid_t pid;    /* Process id */
+                 
 
- 
-  
   strcpy(buf, cmdline);
-  
-  
+
   bg = parseline(buf, argv);
   if (argv[0] == NULL) return; /* Ignore empty lines */
 
@@ -91,13 +89,14 @@ void eval(char *cmdline) {
     perror("spawn failed");
     exit(1);
   } 
-  
-    // TODO: run the command argv using posix_spawnp.
+  globalPid = pid;
     // printf("not yet implemented :(\n");
     /* Parent waits for foreground job to terminate */
     if (!bg) {
       int status;
       if (waitpid(pid, &status, 0) < 0) unix_error("waitfg: waitpid error");
+      globalPid = pid;
+      globalStatus = status;
     } else
       printf("%d %s", pid, cmdline); 
   }
@@ -106,10 +105,16 @@ void eval(char *cmdline) {
 
 /* If first arg is a builtin command, run it and return true */
 int builtin_command(char **argv) {
+  
   if (!strcmp(argv[0], "exit")) /* exit command */
     exit(0);
   if (!strcmp(argv[0], "&")) /* Ignore singleton & */
     return 1;
+  if(!strcmp(argv[0], "?"))
+  {
+   printf("pid:%d status:%d\n", globalPid, globalStatus); 
+    return 1;
+  }
   return 0; /* Not a builtin command */
 }
 /* $end eval */
@@ -147,14 +152,47 @@ void parse_pipe(char** argv, int i)
     close(pipe_fds[1]);
 
     waitpid(pid1, &child_status, 0);
-    
+    globalPid = pid1;
+    globalStatus = child_status;
     waitpid(pid2, &child_status, 0);
-
+    globalStatus = child_status;
+    globalPid = pid1;
     int count = 0; 
       while(count < i + 2){
       argv[count] = '\0';   // make all arguments null
       break;
     }
+}
+
+void parse_semicolon(char** argv , int i )
+{
+  posix_spawn_file_actions_t my_file_actions;
+  posix_spawn_file_actions_init(&my_file_actions);
+  int pid,child_status;
+   argv[i] = '\0';
+      if (0 != posix_spawnp(&pid, argv[0], &my_file_actions, NULL, argv, environ) ) 
+      {
+       perror("spawn failed");
+       exit(1);
+      }
+      wait(&child_status);
+    globalPid = pid;
+    globalStatus = child_status;
+
+      if (0 != posix_spawnp(&pid, argv[i+1], &my_file_actions, NULL, &argv[i+1], environ) ) 
+      {
+       perror("spawn failed");
+       exit(1);
+      }
+      wait(&child_status);
+    globalPid = pid;
+    globalStatus = child_status;
+      int count = 0;
+      while(count < i + 3)
+      {
+      argv[count] = '\0';   // make all arguments null
+      break;
+       }
 }
 void parse_redirections(char **argv)
 {
@@ -176,6 +214,8 @@ void parse_redirections(char **argv)
       exit(1);
       }
        wait(&child_status);
+       globalPid = pid;
+       globalStatus = child_status;
     int count = 0; 
     while(count < i + 2){
       argv[count] = '\0';   // make all arguments null
@@ -185,26 +225,34 @@ void parse_redirections(char **argv)
     }
     else if ((strcmp(argv[i], "<")) == 0)
     {
-        argv[i] = '\0';
-        posix_spawn_file_actions_addopen(&my_file_actions, STDIN_FILENO, argv[i+1],O_RDONLY,S_IRUSR | S_IWUSR);
+      argv[i] = '\0';
+      posix_spawn_file_actions_addopen(&my_file_actions, STDIN_FILENO, argv[i+1],O_RDONLY,S_IRUSR | S_IWUSR);
       if (0 != posix_spawnp(&pid, argv[0], &my_file_actions, NULL, argv, environ) ) 
       {
        perror("spawn failed");
        exit(1);
       }
-      wait(&child_status);
-      int count = 0; 
-      while(count < i + 2){
+        wait(&child_status);
+        globalPid = pid;
+        globalStatus = child_status;
+        int count = 0; 
+      while(count < i + 2)
+      {
       argv[count] = '\0';   // make all arguments null
       break;
-    }
+       }
     }
     // parse pipe 
     else if ((strcmp(argv[i], "|")) == 0)
     {
       parse_pipe(argv , i);
     }
-  
+    // echo hello ; echo world 
+    // parse semi colon command
+    else if ((strcmp(argv[i], ";")) == 0)
+    {
+      parse_semicolon(argv, i);
+    }
 // cat < outfile > outfile2
     // else if ( ((strcmp(argv[i], "<")) == 0) && (strcmp(argv[4],">") == 0))
     // {

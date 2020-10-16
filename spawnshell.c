@@ -118,7 +118,7 @@ void parse_redirections(char **argv)
   posix_spawn_file_actions_t my_file_actions;
   posix_spawn_file_actions_init(&my_file_actions);
  
- int i,pid;
+ int i,pid,child_status;
   for(i = 0 ; argv[i] != NULL; ++i)
   {
     if((strcmp(argv[i], ">")) == 0){
@@ -138,11 +138,23 @@ void parse_redirections(char **argv)
       argv[count] = '\0';   // make all arguments null
       break;
     }
-  
+   wait(&child_status);
     }
     else if ((strcmp(argv[i], "<")) == 0)
     {
         argv[i] = '\0';
+        posix_spawn_file_actions_addopen(&my_file_actions, STDIN_FILENO, argv[i+1],O_RDONLY,S_IRUSR | S_IWUSR);
+      if (0 != posix_spawnp(&pid, argv[0], &my_file_actions, NULL, argv, environ) ) 
+      {
+       perror("spawn failed");
+       exit(1);
+      }
+      wait(&child_status);
+      int count = 0; 
+      while(count < i + 2){
+      argv[count] = '\0';   // make all arguments null
+      break;
+    }
     }
      
   }

@@ -156,12 +156,10 @@ void parse_pipe(char** argv, int i)
     globalStatus = child_status;
     waitpid(pid2, &child_status, 0);
     globalStatus = child_status;
-    globalPid = pid1;
-    int count = 0; 
-      while(count < i + 2){
-      argv[count] = '\0';   // make all arguments null
-      break;
-    }
+    globalPid = pid2;
+    
+      argv[0] = '\0';   // make all arguments null
+
 }
 
 void parse_semicolon(char** argv , int i )
@@ -187,12 +185,10 @@ void parse_semicolon(char** argv , int i )
       wait(&child_status);
     globalPid = pid;
     globalStatus = child_status;
-      int count = 0;
-      while(count < i + 3)
-      {
-      argv[count] = '\0';   // make all arguments null
-      break;
-       }
+      
+      argv[0] = '\0';
+   
+      
 }
 void parse_redirections(char **argv)
 {
@@ -216,11 +212,8 @@ void parse_redirections(char **argv)
        wait(&child_status);
        globalPid = pid;
        globalStatus = child_status;
-    int count = 0; 
-    while(count < i + 2){
-      argv[count] = '\0';   // make all arguments null
-      break;
-    }
+    
+    argv[0] = '\0';
    
     }
     else if ((strcmp(argv[i], "<")) == 0)
@@ -235,12 +228,26 @@ void parse_redirections(char **argv)
         wait(&child_status);
         globalPid = pid;
         globalStatus = child_status;
-        int count = 0; 
-      while(count < i + 2)
-      {
-      argv[count] = '\0';   // make all arguments null
-      break;
-       }
+        // handle input and output redirection
+  //       if(argv[i+2] != NULL && (strcmp(argv[i+2], ">")) == 0 )
+  //       {
+  //         posix_spawn_file_actions_t my_file_actions2;
+  // posix_spawn_file_actions_init(&my_file_actions2);
+  //           argv[i+2] = '\0';
+  //           posix_spawn_file_actions_addopen(&my_file_actions2, STDOUT_FILENO, argv[i+3],O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+  //           if (0 != posix_spawnp(&pid, argv[0], &my_file_actions2, NULL, argv, environ) ) 
+  //           {
+  //             perror("spawn failed");
+  //              exit(1);
+  //            } 
+  //            wait(&child_status);  
+  //            int count = 0 ;
+  //           while(argv[count] != NULL) 
+  //           { 
+  //             argv[count] = '\0';
+  //           }
+  //       }
+        argv[0] = '\0';
     }
     // parse pipe 
     else if ((strcmp(argv[i], "|")) == 0)
@@ -254,31 +261,38 @@ void parse_redirections(char **argv)
       parse_semicolon(argv, i);
     }
 // cat < outfile > outfile2
-    // else if ( ((strcmp(argv[i], "<")) == 0) && (strcmp(argv[4],">") == 0))
-    // {
-    //   argv[i] = '\0';
-    //   argv[i+2] = '\0';
-    //   posix_spawn_file_actions_addopen(&my_file_actions, STDIN_FILENO, argv[i+1],O_RDONLY,S_IRUSR | S_IWUSR);
-    //   if (0 != posix_spawnp(&pid, argv[0], &my_file_actions, NULL, argv, environ) ) 
-    //   {
-    //    perror("spawn failed");
-    //    exit(1);
-    //   }
-    //   wait(&child_status);
-       
-    //   posix_spawn_file_actions_addopen(&my_file_actions, STDOUT_FILENO, argv[i+3],O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+    else if (argv[i+2] != NULL  && (strcmp(argv[i], "<")) == 0 && (strcmp(argv[i+2],">") == 0))
+    {
+      argv[i] = '\0';
      
-    //   if (0 != posix_spawnp(&pid, argv[0], &my_file_actions, NULL, argv, environ) ) 
-    //   {
-    //   perror("spawn failed");
-    //   exit(1);
-    //   }
-    //   int count = 0; 
-    //   while(count < i + 4){
-    //   argv[count] = '\0';   // make all arguments null
-    //   break;
-    // }
-    // }
+      posix_spawn_file_actions_addopen(&my_file_actions, STDIN_FILENO, argv[i+1],O_RDONLY | O_CREAT,S_IRUSR | S_IWUSR);
+      if (0 != posix_spawnp(&pid, argv[0], &my_file_actions, NULL, argv, environ) ) 
+      {
+       perror("spawn failed");
+       exit(1);
+      }
+      wait(&child_status);
+      globalPid = pid;
+     globalStatus = child_status;
+
+       posix_spawn_file_actions_t my_file_actions2;
+  posix_spawn_file_actions_init(&my_file_actions2);
+       argv[i+2] = '\0';
+      posix_spawn_file_actions_addopen(&my_file_actions2, STDOUT_FILENO, argv[i+3],O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+      
+      if (0 != posix_spawnp(&pid, argv[0], &my_file_actions2, NULL, argv, environ) ) 
+      {
+      perror("spawn failed");
+      exit(1);
+      }
+      wait(&child_status);
+
+      int count = 0; 
+      while(argv[count] != NULL){
+      argv[count] = '\0';   // make all arguments null
+      count++;
+    }
+    }
      
   }
 } 

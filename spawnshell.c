@@ -46,10 +46,12 @@ int main() {
  
   signal(SIGINT,sig_handler);
   signal(SIGTSTP,sig_handler);
+  
+ 
   while (1) {
     char *result;
     /* Read */
-    printf("CS361 > ");
+    printf("CS361 >");
    
     result = fgets(cmdline, MAXLINE, stdin);
     if (result == NULL && ferror(stdin)) {
@@ -71,11 +73,15 @@ void eval(char *cmdline) {
   char *argv[MAXARGS]; /* Argument list execve() */
   char buf[MAXLINE];   /* Holds modified command line */
   int bg;              /* Should the job run in bg or fg? */
-  pid_t pid;           /* Process id */
-  //  posix_spawn_file_actions_t my_file_actions;
+  pid_t pid;    
+  // pid_t pid1;           
+  // pid_t pid2;                  /* Process id */
+
  
   
   strcpy(buf, cmdline);
+  
+  
   bg = parseline(buf, argv);
   if (argv[0] == NULL) return; /* Ignore empty lines */
 
@@ -109,28 +115,38 @@ int builtin_command(char **argv) {
 
 void parse_redirections(char **argv)
 {
- posix_spawn_file_actions_t my_file_actions;
- posix_spawn_file_actions_init(&my_file_actions);
-  pid_t pid;
- int i;
+  posix_spawn_file_actions_t my_file_actions;
+  posix_spawn_file_actions_init(&my_file_actions);
+ 
+ int i,pid;
   for(i = 0 ; argv[i] != NULL; ++i)
   {
     if((strcmp(argv[i], ">")) == 0){
-      argv[i] = NULL;
       
-     posix_spawn_file_actions_addopen(&my_file_actions, STDOUT_FILENO, argv[i + 1], O_WRONLY | O_CREAT,S_IRUSR| S_IWUSR) ;
-  
-      if (0 != posix_spawnp(&pid, argv[i-1], &my_file_actions, NULL, argv, environ)) 
+       argv[i] = '\0';
+       
+      posix_spawn_file_actions_addopen(&my_file_actions, STDOUT_FILENO, argv[i+1],O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+     
+      if (0 != posix_spawnp(&pid, argv[0], &my_file_actions, NULL, argv, environ) ) 
       {
       perror("spawn failed");
       exit(1);
+      }
+
+    int count = 0; 
+    while(count < i + 2){
+      argv[count] = '\0';   // make all arguments null
+      break;
     }
-    // waitpid(pid,NULL,0);
+  
+    }
+    else if ((strcmp(argv[i], "<")) == 0)
+    {
+        argv[i] = '\0';
+    }
+     
   }
-
-  } 
-
-}
+} 
 
 
 /* $begin parseline */
@@ -139,7 +155,7 @@ int parseline(char *buf, char **argv) {
   char *delim; /* Points to first space delimiter */
   int argc;    /* Number of args */
   int bg;      /* Background job? */
-
+ 
   buf[strlen(buf) - 1] = ' ';   /* Replace trailing '\n' with space */
   while (*buf && (*buf == ' ')) /* Ignore leading spaces */
     buf++;

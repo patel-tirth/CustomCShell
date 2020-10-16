@@ -22,7 +22,8 @@ extern char **environ; /* Defined by libc */
 void eval(char *cmdline);
 int parseline(char *buf, char **argv);
 int builtin_command(char **argv);
-void parse_redirections(char **argv);
+void parse_redirections(char **argv );
+ void parse_pipe(char **argv, int i);
 
 void unix_error(char *msg) /* Unix-style error */
 {
@@ -112,7 +113,49 @@ int builtin_command(char **argv) {
   return 0; /* Not a builtin command */
 }
 /* $end eval */
+void parse_pipe(char** argv, int i)
+{
+  int child_status;
+      posix_spawn_file_actions_t actions1, actions2;
+      posix_spawn_file_actions_init(&actions1);
+      posix_spawn_file_actions_init(&actions2);
 
+       int pipe_fds[2];
+      int pid1, pid2;
+
+      pipe(pipe_fds);
+
+      argv[i] = '\0';
+      posix_spawn_file_actions_adddup2(&actions1, pipe_fds[1], STDOUT_FILENO);
+
+      posix_spawn_file_actions_addclose(&actions1, pipe_fds[0]);
+
+      posix_spawn_file_actions_adddup2(&actions2, pipe_fds[0], STDIN_FILENO);
+
+     posix_spawn_file_actions_addclose(&actions2, pipe_fds[1]);
+
+     if (0 != posix_spawnp(&pid1, argv[0], &actions1, NULL, argv, environ)) {
+      perror("spawn failed");
+      exit(1);
+     }
+    if (0 != posix_spawnp(&pid2, argv[i+1], &actions2, NULL, &argv[i+1], environ)) {
+    perror("spawn failed");
+    exit(1);
+    }
+    close(pipe_fds[0]);
+
+    close(pipe_fds[1]);
+
+    waitpid(pid1, &child_status, 0);
+    
+    waitpid(pid2, &child_status, 0);
+
+    int count = 0; 
+      while(count < i + 2){
+      argv[count] = '\0';   // make all arguments null
+      break;
+    }
+}
 void parse_redirections(char **argv)
 {
   posix_spawn_file_actions_t my_file_actions;
@@ -132,13 +175,13 @@ void parse_redirections(char **argv)
       perror("spawn failed");
       exit(1);
       }
-
+       wait(&child_status);
     int count = 0; 
     while(count < i + 2){
       argv[count] = '\0';   // make all arguments null
       break;
     }
-   wait(&child_status);
+   
     }
     else if ((strcmp(argv[i], "<")) == 0)
     {
@@ -156,6 +199,38 @@ void parse_redirections(char **argv)
       break;
     }
     }
+    // parse pipe 
+    else if ((strcmp(argv[i], "|")) == 0)
+    {
+      parse_pipe(argv , i);
+    }
+  
+// cat < outfile > outfile2
+    // else if ( ((strcmp(argv[i], "<")) == 0) && (strcmp(argv[4],">") == 0))
+    // {
+    //   argv[i] = '\0';
+    //   argv[i+2] = '\0';
+    //   posix_spawn_file_actions_addopen(&my_file_actions, STDIN_FILENO, argv[i+1],O_RDONLY,S_IRUSR | S_IWUSR);
+    //   if (0 != posix_spawnp(&pid, argv[0], &my_file_actions, NULL, argv, environ) ) 
+    //   {
+    //    perror("spawn failed");
+    //    exit(1);
+    //   }
+    //   wait(&child_status);
+       
+    //   posix_spawn_file_actions_addopen(&my_file_actions, STDOUT_FILENO, argv[i+3],O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+     
+    //   if (0 != posix_spawnp(&pid, argv[0], &my_file_actions, NULL, argv, environ) ) 
+    //   {
+    //   perror("spawn failed");
+    //   exit(1);
+    //   }
+    //   int count = 0; 
+    //   while(count < i + 4){
+    //   argv[count] = '\0';   // make all arguments null
+    //   break;
+    // }
+    // }
      
   }
 } 

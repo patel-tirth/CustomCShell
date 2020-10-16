@@ -25,8 +25,8 @@ int parseline(char *buf, char **argv);
 int builtin_command(char **argv);
 void parse_redirections(char **argv );
 void parse_pipe(char **argv, int i);
-void parse_semicolon(char **argv, int i);
-void parse_input_output(char ** argv, int i );
+void parse_semicolon(char **argv, int i, posix_spawn_file_actions_t my_file_actions);
+void parse_input_output(char ** argv, int i,posix_spawn_file_actions_t my_file_actions);
 int globalPid = 0 ;    // to keep track of the pid of last process ran 
 int globalStatus = 0 ;  // to keep track of the status of the last process ran 
 void unix_error(char *msg) /* Unix-style error */
@@ -170,9 +170,8 @@ void parse_pipe(char** argv, int i)
 }
 
 // parse " ; " command
-void parse_semicolon(char** argv , int i )
+void parse_semicolon(char** argv , int i, posix_spawn_file_actions_t my_file_actions )
 {
-  posix_spawn_file_actions_t my_file_actions;
   posix_spawn_file_actions_init(&my_file_actions);
   
   int pid,child_status;
@@ -194,14 +193,14 @@ void parse_semicolon(char** argv , int i )
       wait(&child_status);
      globalPid = pid;
      globalStatus = child_status;
-     
+
       argv[0] = '\0';
      
 }
 // parse input and output redirection // cat < output > output2
-void parse_input_output(char ** argv, int i )
+void parse_input_output(char ** argv, int i ,posix_spawn_file_actions_t my_file_actions)
 {
-   posix_spawn_file_actions_t my_file_actions;
+  //  posix_spawn_file_actions_t my_file_actions;
   posix_spawn_file_actions_init(&my_file_actions);
   int child_status,pid;
       argv[i] = '\0';
@@ -209,7 +208,7 @@ void parse_input_output(char ** argv, int i )
     // posix_spawn_file_actions_adddup2(&my_file_actions, STDIN_FILENO, STDIN_FILENO);
     // redirect STDOUT_FILENO to null
     // source stackoverflow: https://stackoverflow.com/questions/32049807/how-to-redirect-posix-spawn-stdout-to-dev-null
-    // to prevent the input redirection form being printed to the terminal 
+    // to prevent the input redirection from being printed to the terminal 
       posix_spawn_file_actions_addopen(&my_file_actions, 1, "/dev/null",O_WRONLY,0); 
       //
       if (0 != posix_spawnp(&pid, argv[0], &my_file_actions, NULL, argv, environ) ) 
@@ -268,7 +267,7 @@ void parse_redirections(char **argv)
     {
       if(argv[i+2] != NULL && strcmp(argv[i+2] , ">") == 0 ) // check if 3 rd argv is >.. then call parse input output
       {
-        parse_input_output(argv, i); // parse input and output redirection
+        parse_input_output(argv, i , my_file_actions); // parse input and output redirection
       }
       else {
       argv[i] = '\0';
@@ -291,7 +290,7 @@ void parse_redirections(char **argv)
     }
     else if ((strcmp(argv[i], ";")) == 0)
     {
-      parse_semicolon(argv , i);
+      parse_semicolon(argv , i, my_file_actions);
     }
  
   }

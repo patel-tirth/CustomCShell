@@ -124,7 +124,7 @@ void parse_pipe(char** argv, int i)
 {
   // source: Lab 8
   int child_status;
-      posix_spawn_file_actions_t actions1, actions2;
+      posix_spawn_file_actions_t actions1, actions2; 
       posix_spawn_file_actions_init(&actions1);
       posix_spawn_file_actions_init(&actions2);
 
@@ -150,7 +150,7 @@ void parse_pipe(char** argv, int i)
       perror("spawn failed");
       exit(1);
      }
-    if (0 != posix_spawnp(&pid2, argv[i+1], &actions2, NULL, &argv[i+1], environ)) {
+    if (0 != posix_spawnp(&pid2, argv[i+1], &actions2, NULL, &argv[i+1], environ)) {   //ls -lh | wc -l
     perror("spawn failed");
     exit(1);
     }
